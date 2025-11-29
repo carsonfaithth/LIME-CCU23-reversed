@@ -1,0 +1,94 @@
+# Lime CCU-23 Firmware Reverse Engineering
+
+This project documents the process of dumping and reverse engineering the firmware of the Lime CCU-23 telematics unit using an ESP32 microcontroller.
+
+---
+
+## Device Details
+
+- **Device:** Lime CCU-23 (telemetry unit for vehicles)
+- **Modem:** Quectel EG21-G (4G LTE)
+- **Flash:** GigaDevice GD25Q128 (16MB SPI NOR)
+- **Board layout:** Modem + Flash + MCU under RF shield
+
+---
+
+## Tools Used
+
+- **ESP32** (as SPI flash reader)
+- **CH341A** (optional alternative for dumping)
+- **Working Copy (iOS)** for GitHub project management
+- **Serial Tools / Bluefruit / Terminal Apps** to capture output
+- **Binwalk**, **Ghidra**, **strings**, `xxd` (for firmware analysis)
+
+---
+
+## Firmware Dump Process
+
+1. Wire up ESP32 to GD25Q128 flash chip:
+
+   | Flash Pin | Signal | ESP32 GPIO |
+   |-----------|--------|------------|
+   | 1         | CS     | GPIO 5     |
+   | 2         | MISO   | GPIO 19    |
+   | 3         | WP#    | 3.3V       |
+   | 4         | GND    | GND        |
+   | 5         | MOSI   | GPIO 23    |
+   | 6         | CLK    | GPIO 18    |
+   | 7         | HOLD#  | 3.3V       |
+   | 8         | VCC    | 3.3V       |
+
+2. Flash ESP32 with dumper firmware (from `/esp32-dumper`)
+3. Connect serial terminal (115200 baud)
+4. Dump 16MB flash as `lime_flash.bin`
+5. Save file to `/firmware` folder
+
+---
+
+## Firmware Analysis Steps
+
+- Run: `binwalk -e firmware/lime_flash.bin`
+- Extract config, rootfs, or UBoot data
+- Run: `strings firmware/lime_flash.bin > analysis/strings.txt`
+- Load into Ghidra: architecture `ARM LE:32` or `Thumb2`
+- Identify AT command handlers, SIM/APN config, startup code
+
+---
+
+## Project Structure
+
+```
+lime-ccu23-reverse/
+├── firmware/           # Raw flash dump, hashes
+├── esp32-dumper/       # ESP32 SPI dump code
+├── analysis/           # Output from tools (binwalk, strings, Ghidra)
+├── docs/               # Images, pinouts, board photos
+├── scripts/            # Bash/Python helpers (optional)
+└── README.md
+```
+
+---
+
+## Goals
+
+- Dump full 16MB firmware
+- Identify bootloader & OS
+- [ ] Extract and modify configs (e.g., APN, server endpoint)
+- [ ] Patch / repackage firmware
+- [ ] Reflash using ESP32 or CH341A
+
+---
+
+## Legal / Ethical
+
+This project is for educational and security research purposes **only**.  
+Make sure you're working on **your own device** or with permission. Do not distribute proprietary firmware dumps or private keys.
+
+---
+
+## Credits & Repos Used
+
+- [FlashDump-ESP32](https://github.com/trichl/FlashDump-ESP32)
+- [binwalk](https://github.com/ReFirmLabs/binwalk)
+- [Ghidra](https://ghidra-sre.org/)
+- [Working Copy](https://apps.apple.com/app/id896694807)
