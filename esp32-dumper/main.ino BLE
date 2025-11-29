@@ -1,0 +1,59 @@
+#include <SPI.h>
+#include "BluetoothSerial.h"
+
+BluetoothSerial SerialBT;
+
+// SPI flash dump pins
+#define CS_PIN    5
+#define MOSI_PIN 23
+#define MISO_PIN 19
+#define CLK_PIN  18
+
+#define FLASH_SIZE (16 * 1024 * 1024)  // 16MB
+
+void setup() {
+  Serial.begin(115200);
+  SerialBT.begin("ESP32-Dumper");  // 👈 This is what Bluefruit Connect sees
+  delay(2000);
+  SerialBT.println("📡 Bluetooth SPI Flash Dumper Starting...");
+
+  // Init SPI
+  SPI.begin(CLK_PIN, MISO_PIN, MOSI_PIN, CS_PIN);
+  pinMode(CS_PIN, OUTPUT);
+  digitalWrite(CS_PIN, HIGH);
+
+  // Wake up flash
+  digitalWrite(CS_PIN, LOW);
+  SPI.transfer(0xAB);  // Release from deep power-down
+  digitalWrite(CS_PIN, HIGH);
+  delay(10);
+
+  // Begin Dump
+  for (uint32_t addr = 0; addr < FLASH_SIZE; addr++) {
+    // Send Read command (0x03) with 3-byte address
+    digitalWrite(CS_PIN, LOW);
+    SPI.transfer(0x03);
+    SPI.transfer((addr >> 16) & 0xFF);
+    SPI.transfer((addr >> 8) & 0xFF);
+    SPI.transfer(addr & 0xFF);
+
+    uint8_t byte = SPI.transfer(0x00);
+    digitalWrite(CS_PIN, HIGH);
+
+    // Send raw byte over BLE
+    SerialBT.write(byte);
+
+    // Optional: Progress print every 1MB
+    if (addr % (1024 * 1024) == 0) {
+      SerialBT.printf("Dumped %u MB...\n", addr / (1024 * 1024));
+    }
+
+    delayMicroseconds(2); // Small delay to avoid BLE overflow
+  }
+
+  SerialBT.println(" Dump complete. You can now disconnect.");
+}
+
+void loop() {
+  // No loop needed
+}
